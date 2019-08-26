@@ -57,12 +57,14 @@ class CBAS(tk.Tk):
 		cur = conn.cursor()
 
 		if(table_name == AA):
+
 			for row in periods:
 				name, ringtime, belltype = str(row).split(',')
 				cur.execute('INSERT INTO ALL_ALARMS (name, ringtime, belltype) VALUES (?, ?, ?)',(name, ringtime, belltype))
 			cur.execute('INSERT INTO ALL_ALARM_NAMES (name) VALUES (?)',(name,))
 
 		elif(table_name == ACTA):
+
 			for row in periods:
 				name, ringtime, belltype = str(row).split(',')
 				cur.execute('INSERT INTO ACTIVE_ALARMS (name, ringtime, belltype) VALUES (?, ?, ?)',(name, ringtime, belltype))
@@ -103,13 +105,16 @@ class CBAS(tk.Tk):
 		cur = conn.cursor()
 
 		for row in active_alarms_data:
-			name = name.strip(",('")
+			
 			name,ringtime_str,belltype = row
+			name = name.strip(",('")
 			ringtime_str = ringtime_str.strip(",'")
 			belltype = belltype.strip(",)'")		
 			current_time = datetime.now().time()
-			ringtime = datetime.strptime(ringtime_str, '%H::%M')
+			ringtime = datetime.strptime(ringtime_str, '%H::%M').time()
+
 			if(ringtime >= current_time):
+
 				frequency = 1000
 				duration = 10000
 				if(belltype == 'long'):
@@ -119,10 +124,7 @@ class CBAS(tk.Tk):
 					frequency = 2500
 				winsound.Beep(frequency, duration)
 
-			else:
-				print(ringtime)
-				cur.execute('DELETE FROM ACTIVE WHERE name = (?) AND ringtime = (?) AND belltype = (?)', (name, ringtime, belltype))
-				
+
 
 		for row in active_user_data:
 			name, = row
