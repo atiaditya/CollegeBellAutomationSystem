@@ -14,10 +14,10 @@ SMALL_FONT = ("Times New Roman",16)
 #Creating Required DataBases
 conn = sqlite3.connect('CBAS.sqlite')
 cur = conn.cursor()
-cur.execute('CREATE TABLE IF NOT EXISTS ALL_ALARMS (name VARCHAR, ringtime VARCHAR, belltype VARCHAR)')
-cur.execute('CREATE TABLE IF NOT EXISTS ACTIVE_ALARMS (name VARCHAR, ringtime VARCHAR, belltype VARCHAR)')
-cur.execute('CREATE TABLE IF NOT EXISTS ACTIVE_ALARM_NAMES (name VARCHAR)')
-cur.execute('CREATE TABLE IF NOT EXISTS ALL_ALARM_NAMES (name VARCHAR)')
+cur.execute('CREATE TABLE IF NOT EXISTS ALLALARMS (name VARCHAR, ringtime VARCHAR, belltype VARCHAR)')
+cur.execute('CREATE TABLE IF NOT EXISTS ACTIVE (name VARCHAR, ringtime VARCHAR, belltype VARCHAR)')
+cur.execute('CREATE TABLE IF NOT EXISTS ACTIVE_USER (name VARCHAR)')
+cur.execute('CREATE TABLE IF NOT EXISTS ALLALARMS_USER (name VARCHAR)')
 conn.commit()
 conn.close()
 
@@ -349,7 +349,8 @@ class New(tk.Frame):
 
 	def submit2(self, name, controller):
 		#print(name)
-		periods = [name + ','+ hours_var.get()+':'+minutes_var.get()+','+belltype_var.get() for hours_var,minutes_var,belltype_var in self.l]
+		periods = [(name, hours_var.get()+':'+minutes_var.get(), belltype_var.get()) for hours_var,minutes_var,belltype_var in self.l]
+		print(periods)
 		controller.store_all(periods)
 		
 

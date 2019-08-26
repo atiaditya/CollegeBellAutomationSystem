@@ -58,17 +58,13 @@ class CBAS(tk.Tk):
 
 		if(table_name == AA):
 
-			for row in periods:
-				name, ringtime, belltype = str(row).split(',')
-				cur.execute('INSERT INTO ALL_ALARMS (name, ringtime, belltype) VALUES (?, ?, ?)',(name, ringtime, belltype))
-			cur.execute('INSERT INTO ALL_ALARM_NAMES (name) VALUES (?)',(name,))
+			cur.executemany('INSERT INTO ALL_ALARMS VALUES (?)', periods)
+			cur.execute('INSERT INTO ALL_ALARM_NAMES VALUES (?)',(name,))
 
 		elif(table_name == ACTA):
 
-			for row in periods:
-				name, ringtime, belltype = str(row).split(',')
-				cur.execute('INSERT INTO ACTIVE_ALARMS (name, ringtime, belltype) VALUES (?, ?, ?)',(name, ringtime, belltype))
-			cur.execute('INSERT INTO ACTIVE_ALARM_NAMES (name) VALUES (?)',(name,))
+			cur.executemany('INSERT INTO ACTIVE_ALARMS VALUES (?)', periods)
+			cur.execute('INSERT INTO ACTIVE_ALARM_NAMES VALUES (?)',(name,))
 
 		conn.commit()
 		conn.close()
@@ -83,10 +79,13 @@ class CBAS(tk.Tk):
 
 		if(table_name == AA):
 			cur.execute('SELECT * FROM ALL_ALARMS')
+
 		elif(table_name == ACTA):
 			cur.execute('SELECT * FROM ACTIVE_ALARMS')
+
 		elif(table_name == AAN):
 			cur.execute('SELECT * FROM ALL_ALARM_NAMES')
+
 		else:
 			cur.execute('SELECT * FROM ACTIVE_ALARM_NAMES')
 
@@ -96,15 +95,30 @@ class CBAS(tk.Tk):
 		return self.data
 
 
+	def delete_from_alarms(self, name, ringtime, belltype, table_name):
+
+		if(table_name == AA):
+			cur.execute('DELETE FROM ALL_ALARMS WHERE name = (?) AND ringtime = (?) AND belltype = (?)', (name, ringtime, belltype))
+
+		cur.execute('DELETE FROM ACTIVE_ALARMS WHERE name = (?) AND ringtime = (?) AND belltype = (?)', (name, ringtime, belltype))
+
+
+	def delete_from_names(self, name, table_name):
+
+		if(table_name == AA):
+			cur.execute('DELETE FROM ALL_ALARM_NAMES WHERE name = (?)', (name,))
+
+		cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (name,))
+
+
 	def alarm(self):
 
-		active_alarms_data = self.retrieve_from_db(ACTA)
-		active_alarm_names = self.retrieve_from_db(ACTAN)
-		#print(active_data)
+		self.active_alarms_data = self.retrieve_from_db(ACTA)
+		self.active_alarm_names = self.retrieve_from_db(ACTAN)
 		conn = sqlite3.connect('CBAS.sqlite')
 		cur = conn.cursor()
 
-		for row in active_alarms_data:
+		for row in self.active_alarms_data:
 			
 			name,ringtime_str,belltype = row
 			name = name.strip(",('")
@@ -122,10 +136,17 @@ class CBAS(tk.Tk):
 
 				if(belltype == 'short'):
 					frequency = 2500
+
 				winsound.Beep(frequency, duration)
+				delete_row(name, ringtime_str, belltype)
+				cur.execute('SELECT COUNT(*) FROM ACTIVE_ALARMS WHERE name = (?)', (name,))
+				[(name_count,)] = cur.fetchall()
 
+				if(name_count == 0):
 
-
+					cur.execute('DELETE FROM ACTIVE_USER WHERE name = (?)', (name,))
+					#HomePage(self.container, self)
+		'''
 		for row in active_user_data:
 			name, = row
 			cur.execute('SELECT * FROM ACTIVE WHERE name = (?)', (name,))
@@ -136,10 +157,11 @@ class CBAS(tk.Tk):
 				HomePage(self.container, self)
 			else:
 				print('hi')
+		'''
 		conn.commit()
 		conn.close()
 
-		self.after(60000, self.alarm)
+		self.after(30000, self.alarm)
 
 
 class HomePage(tk.Frame):
@@ -155,8 +177,8 @@ class HomePage(tk.Frame):
 		all_label.grid(row=1,column=0,sticky=N+S+W+E,columnspan=3,pady =5,padx=5,ipady = 3)
 		active_label = ttk.Label(self, text = 'ACTIVE',anchor='center',font=MEDIUM_FONT,background = '#9cd9b3',borderwidth=5,relief = 'sunken')
 		active_label.grid(row=1,column=3,sticky=N+S+W+E,columnspan=3,pady =5,padx=5,ipady = 3)
-		all_user_data = controller.retrieve_allalarms_user()
-		active_user_data  = controller.retrieve_active_user()
+		all_user_data = controller.retrieve_from_db(AAN)
+		active_user_data  = controller.retrieve_from_db(ACTAN)
 		self.all = tk.Listbox(self, selectmode = 'multiple',font = SMALL_FONT)
 		self.all.insert('end', *all_user_data)
 		self.all.grid(row=2,column=0,sticky = N+S+W+E,columnspan=3,rowspan=5,ipady=160,pady =10,padx=10)
@@ -207,9 +229,9 @@ class HomePage(tk.Frame):
 			self.alarm_menu['menu'].add_command(label=choice, command=tk._setit(self.alarm_var, choice))'''
 	def modify(self, controller):
 		print('Hii')
-		all_user_data = controller.retrieve_allalarms_user()
+		all_user_data = controller.retrieve_from_db(AAN)
 		
-		active_user_data  = controller.retrieve_active_user()
+		active_user_data  = controller.retrieve_from_db(ACTAN)
 		#print(active_user_data)
 		self.all.delete(0, 'end')
 		#print(all_user_data)
@@ -227,12 +249,12 @@ class HomePage(tk.Frame):
 		for i in selected:
 			
 			if self.all.get(i) not in active_user_data:
-				cur.execute('INSERT INTO ACTIVE_USER (name) VALUES (?)',(self.all.get(i)))
-				cur.execute('SELECT * FROM ALLALARMS  WHERE name = (?)',(self.all.get(i)))
+				cur.execute('INSERT INTO ACTIVE_ALARM_NAMES (name) VALUES (?)',(self.all.get(i)))
+				cur.execute('SELECT * FROM ALL_ALARMS WHERE name = (?)',(self.all.get(i)))
 				selecteddata = cur.fetchall()
 				for row in selecteddata:
 					name, ringtime, belltype = row
-					cur.execute('INSERT INTO ACTIVE VALUES (?,?,?)',(name, ringtime, belltype))
+					cur.execute('INSERT INTO ACTIVE_ALARMS VALUES (?,?,?)',(name, ringtime, belltype))
 			conn.commit()
 		conn.close()
 
@@ -240,7 +262,7 @@ class HomePage(tk.Frame):
 
 		conn = sqlite3.connect('CBAS.sqlite')
 		cur = conn.cursor()
-		cur.execute('SELECT * FROM ALLALARMS WHERE name = (?)', (name,))
+		cur.execute('SELECT * FROM ALL_ALARMS WHERE name = (?)', (name,))
 		data = cur.fetchall()
 		if self.e is not None:
 			self.e.destroy()
@@ -261,10 +283,10 @@ class HomePage(tk.Frame):
 		conn = sqlite3.connect('CBAS.sqlite')
 		cur = conn.cursor()
 		for i in sel[::-1]:
-			cur.execute('DELETE FROM ALLALARMS WHERE name = (?)', (self.all.get(i)))
-			cur.execute('DELETE FROM ALLALARMS_USER WHERE name = (?)', (self.all.get(i)))
-			cur.execute('DELETE FROM ACTIVE WHERE name = (?)', (self.all.get(i)))
-			cur.execute('DELETE FROM ACTIVE_USER WHERE name = (?)', (self.all.get(i)))
+			cur.execute('DELETE FROM ALL_ALARMS WHERE name = (?)', (self.all.get(i)))
+			cur.execute('DELETE FROM ALL_ALARM_NAMES WHERE name = (?)', (self.all.get(i)))
+			cur.execute('DELETE FROM ACTIVE_ALARMS WHERE name = (?)', (self.all.get(i)))
+			cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (self.all.get(i)))
 			self.all.delete(i)
 		conn.commit()
 		conn.close()
@@ -274,8 +296,8 @@ class HomePage(tk.Frame):
 		conn = sqlite3.connect('CBAS.sqlite')
 		cur = conn.cursor()
 		for i in sel[::-1]:
-			cur.execute('DELETE FROM ACTIVE WHERE name = (?)', (self.all.get(i)))
-			cur.execute('DELETE FROM ACTIVE_USER WHERE name = (?)', (self.all.get(i)))
+			cur.execute('DELETE FROM ACTIVE_ALARMS WHERE name = (?)', (self.all.get(i)))
+			cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (self.all.get(i)))
 			self.active.delete(i)
 		conn.commit()
 		conn.close()
@@ -323,7 +345,8 @@ class New(tk.Frame):
 
 	def submit2(self, name, controller):
 		#print(name)
-		periods = [name + ','+ hours_var.get()+'::'+minutes_var.get()+','+belltype_var.get() for hours_var,minutes_var,belltype_var in self.l]
+		periods = periods = [ (name, hours_var.get()+':'+minutes_var.get(), belltype_var.get()) for hours_var,minutes_var,belltype_var in self.l]
+		print(periods)
 		controller.store_all(periods)
 		
 
