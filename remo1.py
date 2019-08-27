@@ -5,6 +5,7 @@ from tkinter import ttk
 import sqlite3
 import winsound
 from datetime import datetime
+import time
 
 
 #Global Declarations
@@ -76,10 +77,7 @@ class CBAS(tk.Tk):
 			conn.commit()
 
 		conn.close()
-		HomePage(self.container, self)
-		self.show_frame(HomePage)
-
-
+		
 	def retrieve_from_db(self, table_name):
 
 		conn = sqlite3.connect('CBAS.sqlite')
@@ -142,6 +140,10 @@ class CBAS(tk.Tk):
 
 		return data
 
+	def check_if_alarm_exists(self, alarm_name):
+
+
+
 
 	def alarm(self):
 
@@ -156,10 +158,8 @@ class CBAS(tk.Tk):
 			name = name.strip(",('")
 			ringtime_str = ringtime_str.strip(",'")
 			belltype = belltype.strip(",)'")		
-			current_time = datetime.now().time()
-			ringtime = datetime.strptime(ringtime_str, '%H::%M').time()
-			print(ringtime, current_time)
-			if(current_time >= ringtime):
+			current_time = time.strftime('%H:%M')
+			if(current_time == ringtime_str):
 				
 				frequency = 1000
 				duration = 10000
@@ -435,9 +435,10 @@ class New(tk.Frame):
 
 		self.name = self.name_entry.get()
 		#print(name)
-		periods = [ (self.name, hours_var.get()+'::'+minutes_var.get(), belltype_var.get()) for hours_var,minutes_var,belltype_var in self.current_ring_times]
+		periods = [ (self.name, hours_var.get()+':'+minutes_var.get(), belltype_var.get()) for hours_var,minutes_var,belltype_var in self.current_ring_times]
 		print(periods)
 		self.controller.store_in_db(periods, AA, self.name)
+		self.controller.show_frame(HomePage)
 		
 
 app = CBAS()
