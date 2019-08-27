@@ -1,5 +1,6 @@
 #Importing Required Modules
 import tkinter as tk
+from tkinter import messagebox
 from tkinter import *
 from tkinter import ttk
 import sqlite3
@@ -140,9 +141,20 @@ class CBAS(tk.Tk):
 
 		return data
 
-	def check_if_alarm_exists(self, alarm_name):
 
+	def alarm_exists(self, alarm_name):
 
+		conn = sqlite3.connect('CBAS.sqlite')
+		cur = conn.cursor()
+		cur.execute('SELECT COUNT(*) FROM ALL_ALARMS WHERE name = (?)', (alarm_name,))
+		conn.commit()
+		[(name_count,)] = cur.fetchall()
+		print(name_count)
+
+		if(name_count != 0):
+			return True
+			
+		return False
 
 
 	def alarm(self):
@@ -394,41 +406,47 @@ class New(tk.Frame):
 
 	def on_click_submit_top(self, no_of_periods):
 
-		self.current_ring_times = []
-	
-		if self.last_button is not None:
-			self.last_button.destroy()
+		if(self.controller.alarm_exists(self.name_entry.get())):
 
-		while(self.menu_items_list):
-			menu_item = self.menu_items_list.pop()
-			menu_item.destroy()
+			messagebox.showinfo('Warning', 'Alarm already exists')
 
-		for i in range(no_of_periods):
+		else:
 
-			hours_var = tk.StringVar()
-			minutes_var  = tk.StringVar()
-			belltype_var = tk.StringVar()
+			self.current_ring_times = []
+		
+			if self.last_button is not None:
+				self.last_button.destroy()
 
-			hour_menu = ttk.Combobox(self, textvariable=hours_var, values=hours_options, state = 'readonly')
-			hour_menu.grid(row = i+1,pady = 3)
+			while(self.menu_items_list):
+				menu_item = self.menu_items_list.pop()
+				menu_item.destroy()
 
-			minute_menu = ttk.Combobox(self, textvariable = minutes_var, values = minutes_options, state = 'readonly')
-			minute_menu.grid(row = i+1, column = 1,pady=3)
+			for i in range(no_of_periods):
 
-			belltype_menu = ttk.Combobox(self, textvariable = belltype_var, values = belltypes, state = 'readonly')
-			belltype_menu.grid(row = i+1, column = 2,pady=3)
+				hours_var = tk.StringVar()
+				minutes_var  = tk.StringVar()
+				belltype_var = tk.StringVar()
 
-			hours_var.set(hours_options[0])
-			minutes_var.set(minutes_options[0])
-			belltype_var.set(belltypes[0])
+				hour_menu = ttk.Combobox(self, textvariable=hours_var, values=hours_options, state = 'readonly')
+				hour_menu.grid(row = i+1,pady = 3)
 
-			self.menu_items_list.extend([hour_menu, minute_menu, belltype_menu])
-			self.current_ring_times.append((hours_var, minutes_var, belltype_var))
+				minute_menu = ttk.Combobox(self, textvariable = minutes_var, values = minutes_options, state = 'readonly')
+				minute_menu.grid(row = i+1, column = 1,pady=3)
 
-		submit_bottom = ttk.Button(self, text = "Submit", command = lambda : self.on_click_submit_bottom())
-		no_of_periods += 1
-		submit_bottom.grid(row = no_of_periods)
-		self.last_button = submit_bottom
+				belltype_menu = ttk.Combobox(self, textvariable = belltype_var, values = belltypes, state = 'readonly')
+				belltype_menu.grid(row = i+1, column = 2,pady=3)
+
+				hours_var.set(hours_options[0])
+				minutes_var.set(minutes_options[0])
+				belltype_var.set(belltypes[0])
+
+				self.menu_items_list.extend([hour_menu, minute_menu, belltype_menu])
+				self.current_ring_times.append((hours_var, minutes_var, belltype_var))
+
+			submit_bottom = ttk.Button(self, text = "Submit", command = lambda : self.on_click_submit_bottom())
+			no_of_periods += 1
+			submit_bottom.grid(row = no_of_periods)
+			self.last_button = submit_bottom
 
 
 	def on_click_submit_bottom(self):
