@@ -489,7 +489,7 @@ class New(tk.Frame):
 		self.name_entry = ttk.Entry(self, font = SMALL_FONT)
 		self.name_entry.grid(row = 0,column = 1,sticky=N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
 
-		no_of_periods = tk.Label(self, text = 'No of periods :', font = SMALL_FONT, bg = '#9cc0d9')
+		no_of_periods = tk.Label(self, text = 'No of ringtimes :', font = SMALL_FONT, bg = '#9cc0d9')
 		no_of_periods.grid(row = 0, column = 2)
 
 		no_of_periods_entry = ttk.Entry(self, font = SMALL_FONT)
