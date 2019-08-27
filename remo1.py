@@ -22,6 +22,7 @@ hours_options.extend([str(i) for i in range(10,24)])
 minutes_options = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
 minutes_options.extend([str(i) for i in range(10,60)])
 belltypes  = ['short', 'long']
+data_to_edit = None
 
 
 #Creating Required DataBases
@@ -153,7 +154,7 @@ class CBAS(tk.Tk):
 
 		if(name_count != 0):
 			return True
-			
+
 		return False
 
 
@@ -226,13 +227,13 @@ class HomePage(tk.Frame):
 		self.aan_list.config(yscrollcommand = aan_scrollbar.set)
 
 		aan_remove = ttk.Button(self, text = 'Remove', command = lambda: self.delete_from_aan_list())
-		aan_remove.grid(row = 7, column = 2,sticky = W+E,pady = 5,padx=10,ipadx = 1,ipady = 1)
+		aan_remove.grid(row = 8, column = 2,sticky = W+E,pady = 5,padx=10,ipadx = 1,ipady = 1)
 
 		set_active = ttk.Button(self, text = 'Set', command = lambda : self.set_to_active())
 		set_active.grid(row=7,column=0,sticky=E+W,pady = 5,padx=10,ipadx = 1,ipady = 1)
 
 		new = ttk.Button(self,text = 'New', command = lambda : self.controller.show_frame(New))
-		new.grid(row = 7,column = 1,pady = 5,padx=10,ipadx = 1,ipady = 1,sticky = E+W)
+		new.grid(row = 7,column = 2,pady = 5,padx=10,ipadx = 1,ipady = 1,sticky = E+W)
 
 
 		#Active Alarms list and corresponding options.
@@ -244,10 +245,10 @@ class HomePage(tk.Frame):
 		self.actan_list = tk.Listbox(self, selectmode = 'multiple')
 		self.actan_list.insert('end', *actan_data)
 		self.actan_list.grid(row=2,column=3,sticky=N+E+W+S,columnspan=3,pady =10,padx=10)
-
+		'''
 		refresh = ttk.Button(self, text = "Refresh", command = lambda : self.update_lists())
 		refresh.grid(row=3,column=5,sticky=N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
-
+		'''
 		actan_remove = ttk.Button(self, text = 'Remove', command = lambda : self.delete_from_actan_list())
 		actan_remove.grid(row = 3, column = 4, sticky = N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
 
@@ -256,8 +257,9 @@ class HomePage(tk.Frame):
 		actan_scrollbar.pack(side="right", fill="y")
 		self.actan_list.config(yscrollcommand = actan_scrollbar.set)
 
-
-		#See what are the ringtimes of particular alarm
+		actan_edit = ttk.Button(self, text = 'Edit', command = lambda : self.edit_alarm())
+		actan_edit.grid(row = 8, column = 0,sticky = N+E+W+S)
+		#See what are the ringtimes of a particular alarm
 		show_label = tk.Label(self, text = 'Enter alarm name :', font = SMALL_FONT, bg = '#9cc0d9')
 		show_label.grid(row=4,column = 3,sticky=N+E+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
 
@@ -267,10 +269,9 @@ class HomePage(tk.Frame):
 		show_button = ttk.Button(self, text = 'Show', command = lambda : self.show_details(alarm_name.get()))
 		show_button.grid(row=4,column=5,sticky = N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
 
-		s = ttk.Style()
-		s.configure('TButton', font = SMALL_FONT)
-		
-	
+		#s = ttk.Style()
+		#s.configure('TButton', font = SMALL_FONT)
+
 		self.display_details = tk.Text(self, height = 20)
 		self.display_details.grid(row=5,column=3,sticky = E+W,columnspan = 3,rowspan = 3,pady = 5,padx=5)
 		
@@ -287,6 +288,8 @@ class HomePage(tk.Frame):
 
 		self.actan_list.delete(0, 'end')
 		self.actan_list.insert('end', *actan_data_updated)
+
+		self.after(10000, self.update_lists)
 
 
 	def set_to_active(self):
@@ -312,12 +315,12 @@ class HomePage(tk.Frame):
 					cur.execute('INSERT INTO ACTIVE_ALARMS VALUES (?,?,?)',(name, ringtime, belltype))
 					conn.commit()
 
-		self.update_lists()
+		#self.update_lists()
 		conn.close()
 
 
 	def show_details(self, alarm_name):
-
+		print(alarm_name)
 		data = self.controller.retrieve_alarms_by_name(alarm_name)
 
 		if self.display_details is not None:
@@ -352,7 +355,7 @@ class HomePage(tk.Frame):
 			conn.commit()
 			self.aan_list.delete(i)
 
-		self.update_lists()
+		#self.update_lists()
 		conn.close()
 
 
@@ -370,9 +373,74 @@ class HomePage(tk.Frame):
 			conn.commit()
 			self.actan_list.delete(i)
 
-		self.update_lists()
+		#self.update_lists()
 		conn.close()
 
+
+	def edit_alarm(self):
+
+		global data_to_edit
+		selected_alarms = self.aan_list.curselection()
+
+		if(len(selected_alarms)>1):
+			messagebox.showinfo('Warning', 'Select only one alarm')
+
+		else:
+
+			alarm_index = selected_alarms[0]
+			alarm_name = self.aan_list.get(alarm_index)
+			alarm_name = str(alarm_name)
+			alarm_name = alarm_name.strip("(,)'")
+			print(alarm_name)
+			data_to_edit = self.controller.retrieve_alarms_by_name(alarm_name)
+			print(data_to_edit)
+			self.controller.show_frame(Edit)
+
+
+class Edit(tk.Frame):
+
+	def __init__(self, parent, controller):
+
+		global data_to_edit
+		tk.Frame.__init__(self, parent)
+		self.config(bg = '#9cc0d9')
+		self.controller = controller
+
+		print(data_to_edit, len(data_to_edit))
+		self.items_to_destroy = []
+		self.current_ring_times = []
+		
+		for i in range(len(data_to_edit)):
+				
+				row = data_to_edit[i]
+				(alarm_name,ringtime,belltype) = row
+				
+				hours,minutes = ringtime.split(':')
+				print(hours, minutes)
+
+				alarm_label = tk.Label(self, text = alarm_name, font = LARGE_FONT, bg = '#9cc0d9')
+				alarm_label.grid(row = 0)
+				hour_menu = ttk.Combobox(self, values=hours_options, state = 'readonly')
+				hour_menu.grid(row = i+1,pady = 3)
+
+				minute_menu = ttk.Combobox(self, values = minutes_options, state = 'readonly')
+				minute_menu.grid(row = i+1, column = 1,pady = 3)
+
+				belltype_menu = ttk.Combobox(self, values = belltypes, state = 'readonly')
+				belltype_menu.grid(row = i+1, column = 2,pady = 3)
+				
+				hour_menu.set(hours)
+				minute_menu.set(minutes)
+				belltype_menu.set(belltype)
+
+				self.items_to_destroy.extend([hour_menu, minute_menu, belltype_menu])
+				self.current_ring_times.append((hour_menu, minute_menu, belltype_menu))
+
+		submit = ttk.Button(self, text = "Submit", command = lambda : self.on_click_submit_top(int(no_of_periods_entry.get() )))
+		submit.grid(row = len(data_to_edit) + 1, column = 2)
+
+		back = ttk.Button(self, text = "Back", command = lambda : self.controller.show_frame(HomePage))
+		back.grid(row = len(data_to_edit) + 1,column = 3,padx = 5)		
 
 
 class New(tk.Frame):
@@ -381,7 +449,7 @@ class New(tk.Frame):
 
 		self.controller = controller
 		self.last_button = None
-		self.menu_items_list = []
+		self.items_to_destroy = []
 		tk.Frame.__init__(self, parent)
 		self.config(bg = '#9cc0d9')
 
@@ -413,14 +481,16 @@ class New(tk.Frame):
 		else:
 
 			self.current_ring_times = []
-		
+
+			#Destroying previous dynamic widgets
 			if self.last_button is not None:
 				self.last_button.destroy()
 
-			while(self.menu_items_list):
-				menu_item = self.menu_items_list.pop()
+			while(self.items_to_destroy):
+				menu_item = self.items_to_destroy.pop()
 				menu_item.destroy()
 
+			#Generating comboboxes for entering ringtimes
 			for i in range(no_of_periods):
 
 				hours_var = tk.StringVar()
@@ -440,7 +510,7 @@ class New(tk.Frame):
 				minutes_var.set(minutes_options[0])
 				belltype_var.set(belltypes[0])
 
-				self.menu_items_list.extend([hour_menu, minute_menu, belltype_menu])
+				self.items_to_destroy.extend([hour_menu, minute_menu, belltype_menu])
 				self.current_ring_times.append((hours_var, minutes_var, belltype_var))
 
 			submit_bottom = ttk.Button(self, text = "Submit", command = lambda : self.on_click_submit_bottom())
