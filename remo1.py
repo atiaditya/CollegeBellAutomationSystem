@@ -51,22 +51,25 @@ class CBAS(tk.Tk):
 		self.frame.pack(side="top", fill="both", expand = True)
 
 
-	def store_in_db(self, periods, table_name):
+	def store_in_db(self, periods, table_name, alarm_name):
 
 		conn = sqlite3.connect('CBAS.sqlite')
 		cur = conn.cursor()
 
 		if(table_name == AA):
 
-			cur.executemany('INSERT INTO ALL_ALARMS VALUES (?)', periods)
-			cur.execute('INSERT INTO ALL_ALARM_NAMES VALUES (?)',(name,))
+			cur.executemany('INSERT INTO ALL_ALARMS VALUES (?,?,?)', periods)
+			conn.commit()
+			cur.execute('INSERT INTO ALL_ALARM_NAMES VALUES (?)',(alarm_name,))
+			conn.commit()
 
 		elif(table_name == ACTA):
 
-			cur.executemany('INSERT INTO ACTIVE_ALARMS VALUES (?)', periods)
-			cur.execute('INSERT INTO ACTIVE_ALARM_NAMES VALUES (?)',(name,))
+			cur.executemany('INSERT INTO ACTIVE_ALARMS VALUES (?,?,?)', periods)
+			conn.commit()
+			cur.execute('INSERT INTO ACTIVE_ALARM_NAMES VALUES (?)',(alarm_name,))
+			conn.commit()
 
-		conn.commit()
 		conn.close()
 		HomePage(self.container, self)
 		self.show_frame(HomePage)
@@ -96,19 +99,28 @@ class CBAS(tk.Tk):
 
 
 	def delete_from_alarms(self, name, ringtime, belltype, table_name):
-
+		conn = sqlite3.connect('CBAS.sqlite')
+		cur = conn.cursor()
 		if(table_name == AA):
 			cur.execute('DELETE FROM ALL_ALARMS WHERE name = (?) AND ringtime = (?) AND belltype = (?)', (name, ringtime, belltype))
+			conn.commit()
 
 		cur.execute('DELETE FROM ACTIVE_ALARMS WHERE name = (?) AND ringtime = (?) AND belltype = (?)', (name, ringtime, belltype))
+		conn.commit()
+		conn.close()
 
 
 	def delete_from_names(self, name, table_name):
-
+		conn = sqlite3.connect('CBAS.sqlite')
+		cur = conn.cursor()
 		if(table_name == AA):
+
 			cur.execute('DELETE FROM ALL_ALARM_NAMES WHERE name = (?)', (name,))
+			conn.commit()
 
 		cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (name,))
+		conn.commit()
+		conn.close()
 
 
 	def alarm(self):
@@ -138,13 +150,16 @@ class CBAS(tk.Tk):
 					frequency = 2500
 
 				winsound.Beep(frequency, duration)
-				delete_row(name, ringtime_str, belltype)
+				cur.execute('DELETE FROM ACTIVE_ALARMS WHERE name = (?) AND ringtime = (?) AND belltype = (?)', (name, ringtime_str, belltype))
+				conn.commit()
 				cur.execute('SELECT COUNT(*) FROM ACTIVE_ALARMS WHERE name = (?)', (name,))
+				conn.commit()
 				[(name_count,)] = cur.fetchall()
 
 				if(name_count == 0):
 
-					cur.execute('DELETE FROM ACTIVE_USER WHERE name = (?)', (name,))
+					cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (name,))
+					conn.commit()
 					#HomePage(self.container, self)
 		'''
 		for row in active_user_data:
@@ -158,7 +173,7 @@ class CBAS(tk.Tk):
 			else:
 				print('hi')
 		'''
-		conn.commit()
+		
 		conn.close()
 
 		self.after(30000, self.alarm)
@@ -171,12 +186,16 @@ class HomePage(tk.Frame):
 		tk.Frame.__init__(self, parent)
 		self.config(bg = '#9cc0d9')
 		#logo = tk.PhotoImage(file = 'C:\\Users\\Lenovo\\Desktop\\dribbble.gif')
-		l = tk.Label(self, text = "HomePage",bg='#a79cd9',font=LARGE_FONT,borderwidth=5,relief = 'raised')
-		l.grid(row=0,column=0,sticky = W+E,columnspan=6,ipadx = 600,pady = 5,ipady = 5,padx = 5)
+
+		home_label = tk.Label(self, text = "HomePage",bg='#a79cd9',font=LARGE_FONT,borderwidth=5,relief = 'raised')
+		home_label.grid(row=0,column=0,sticky = W+E,columnspan=6,ipadx = 600,pady = 5,ipady = 5,padx = 5)
+
 		all_label = ttk.Label(self, text = 'PRESETS',anchor='center',font=MEDIUM_FONT,background = '#9cd9b3',borderwidth=5,relief = 'sunken')
 		all_label.grid(row=1,column=0,sticky=N+S+W+E,columnspan=3,pady =5,padx=5,ipady = 3)
+
 		active_label = ttk.Label(self, text = 'ACTIVE',anchor='center',font=MEDIUM_FONT,background = '#9cd9b3',borderwidth=5,relief = 'sunken')
 		active_label.grid(row=1,column=3,sticky=N+S+W+E,columnspan=3,pady =5,padx=5,ipady = 3)
+
 		all_user_data = controller.retrieve_from_db(AAN)
 		active_user_data  = controller.retrieve_from_db(ACTAN)
 		self.all = tk.Listbox(self, selectmode = 'multiple',font = SMALL_FONT)
@@ -241,7 +260,7 @@ class HomePage(tk.Frame):
 
 	def add(self, controller):
 
-		active_user_data = controller.retrieve_active_user()
+		active_user_data = controller.retrieve_from_db(ACTAN)
 		print(active_user_data)
 		selected = self.all.curselection()
 		conn = sqlite3.connect('CBAS.sqlite')
@@ -302,9 +321,13 @@ class HomePage(tk.Frame):
 		conn.commit()
 		conn.close()
 
+
 class New(tk.Frame):
 
 	def __init__(self, parent, controller):
+
+		self.last_button = None
+		self.menu_items_list = []
 		tk.Frame.__init__(self, parent)
 		self.config(bg = '#9cc0d9')
 		n = tk.Label(self, text = 'Name :', font = SMALL_FONT, bg = '#9cc0d9')
@@ -323,6 +346,18 @@ class New(tk.Frame):
 	def submit1(self, name, no_of_periods, controller):
 
 		self.l = []
+		#print(self.last_button)
+		#print(self.menu_items_list)
+
+		if self.last_button is not None:
+			self.last_button.destroy()
+
+		while(self.menu_items_list):
+			menu_item = self.menu_items_list.pop()
+			menu_item.destroy()
+			#if menu_item is not None:
+				#menu_item.destroy()
+
 		hours_options = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
 		hours_options.extend([str(i) for i in range(10,24)])
 		minutes_options = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
@@ -332,22 +367,31 @@ class New(tk.Frame):
 			hours_var = tk.StringVar()
 			minutes_var  = tk.StringVar()
 			belltype_var = tk.StringVar()
-			hour_menu = ttk.Combobox(self, textvariable=hours_var, values=hours_options, state = 'readonly').grid(row = i+1,pady = 3)
-			minute_menu = ttk.Combobox(self, textvariable = minutes_var, values = minutes_options, state = 'readonly').grid(row = i+1, column = 1,pady=3)
-			belltype_menu = ttk.Combobox(self, textvariable = belltype_var, values = belltypes, state = 'readonly').grid(row = i+1, column = 2,pady=3)
+			hour_menu = ttk.Combobox(self, textvariable=hours_var, values=hours_options, state = 'readonly')
+			hour_menu.grid(row = i+1,pady = 3)
+			minute_menu = ttk.Combobox(self, textvariable = minutes_var, values = minutes_options, state = 'readonly')
+			minute_menu.grid(row = i+1, column = 1,pady=3)
+			belltype_menu = ttk.Combobox(self, textvariable = belltype_var, values = belltypes, state = 'readonly')
+			belltype_menu.grid(row = i+1, column = 2,pady=3)
 			hours_var.set(hours_options[0])
 			minutes_var.set(minutes_options[0])
 			belltype_var.set(belltypes[0])
+			l = [hour_menu, minute_menu, belltype_menu]
+			print(l)
+			self.menu_items_list.extend(l)
 			self.l.append((hours_var, minutes_var, belltype_var))
 		submit = ttk.Button(self, text = "Submit", command = lambda : self.submit2(name, controller))
 		no_of_periods += 1
 		submit.grid(row = no_of_periods)
+		self.last_button = submit
+		#print(submit)
 
 	def submit2(self, name, controller):
+
 		#print(name)
-		periods = periods = [ (name, hours_var.get()+':'+minutes_var.get(), belltype_var.get()) for hours_var,minutes_var,belltype_var in self.l]
+		periods = [ (name, hours_var.get()+'::'+minutes_var.get(), belltype_var.get()) for hours_var,minutes_var,belltype_var in self.l]
 		print(periods)
-		controller.store_all(periods)
+		controller.store_in_db(periods, AA, name)
 		
 
 app = CBAS()
