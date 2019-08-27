@@ -117,17 +117,30 @@ class CBAS(tk.Tk):
 		conn.close()
 
 
-	def delete_from_names(self, name, table_name):
+	def delete_from_names(self, alarm_name, table_name):
+
 		conn = sqlite3.connect('CBAS.sqlite')
 		cur = conn.cursor()
 		if(table_name == AA):
 
-			cur.execute('DELETE FROM ALL_ALARM_NAMES WHERE name = (?)', (name,))
+			cur.execute('DELETE FROM ALL_ALARM_NAMES WHERE name = (?)', (alarm_name,))
 			conn.commit()
 
-		cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (name,))
+		cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (alarm_name,))
 		conn.commit()
 		conn.close()
+
+
+	def retrieve_alarms_by_name(self, alarm_name):
+
+		conn = sqlite3.connect('CBAS.sqlite')
+		cur = conn.cursor()
+		cur.execute('SELECT * FROM ALL_ALARMS WHERE name = (?)', (alarm_name,))
+		data = cur.fetchall()
+		conn.commit()
+		conn.close()
+
+		return data
 
 
 	def alarm(self):
@@ -168,21 +181,8 @@ class CBAS(tk.Tk):
 					cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (name,))
 					conn.commit()
 					#HomePage(self.container, self)
-		'''
-		for row in active_user_data:
-			name, = row
-			cur.execute('SELECT * FROM ACTIVE WHERE name = (?)', (name,))
-			data = cur.fetchall()
-			if not data:
-				print('good boy')
-				cur.execute('DELETE FROM ACTIVE_USER WHERE name = (?)', (name,))
-				HomePage(self.container, self)
-			else:
-				print('hi')
-		'''
-		
-		conn.close()
 
+		conn.close()
 		self.after(30000, self.alarm)
 
 
@@ -192,142 +192,175 @@ class HomePage(tk.Frame):
 
 		tk.Frame.__init__(self, parent)
 		self.config(bg = '#9cc0d9')
-		#logo = tk.PhotoImage(file = 'C:\\Users\\Lenovo\\Desktop\\dribbble.gif')
+		self.controller = controller
 
+		#Home
 		home_label = tk.Label(self, text = "HomePage",bg='#a79cd9',font=LARGE_FONT,borderwidth=5,relief = 'raised')
 		home_label.grid(row=0,column=0,sticky = W+E,columnspan=6,ipadx = 600,pady = 5,ipady = 5,padx = 5)
 
-		all_label = ttk.Label(self, text = 'PRESETS',anchor='center',font=MEDIUM_FONT,background = '#9cd9b3',borderwidth=5,relief = 'sunken')
-		all_label.grid(row=1,column=0,sticky=N+S+W+E,columnspan=3,pady =5,padx=5,ipady = 3)
+		#All Alarms list and corresponding options.
+		aan_label = ttk.Label(self, text = 'PRESETS',anchor='center',font=MEDIUM_FONT,background = '#9cd9b3',borderwidth=5,relief = 'sunken')
+		aan_label.grid(row=1,column=0,sticky=N+S+W+E,columnspan=3,pady =5,padx=5,ipady = 3)
 
+		aan_data = controller.retrieve_from_db(AAN)
+
+		self.aan_list = tk.Listbox(self, selectmode = 'multiple', font = SMALL_FONT)
+		self.aan_list.insert('end', *aan_data)
+		self.aan_list.grid(row=2,column=0,sticky = N+S+W+E,columnspan=3,rowspan=5,ipady=160,pady =10,padx=10)
+
+		aan_scrollbar = tk.Scrollbar(self.aan_list, orient  = 'vertical')
+		aan_scrollbar.config(command = self.aan_list.yview)
+		aan_scrollbar.pack(side="right", fill="y")
+		self.aan_list.config(yscrollcommand = aan_scrollbar.set)
+
+		aan_remove = ttk.Button(self, text = 'Remove', command = lambda: self.delete_from_aan_list())
+		aan_remove.grid(row = 7, column = 2,sticky = W+E,pady = 5,padx=10,ipadx = 1,ipady = 1)
+
+		set_active = ttk.Button(self, text = 'Set', command = lambda : self.set_to_active())
+		set_active.grid(row=7,column=0,sticky=E+W,pady = 5,padx=10,ipadx = 1,ipady = 1)
+
+		new = ttk.Button(self,text = 'New', command = lambda : self.controller.show_frame(New))
+		new.grid(row = 7,column = 1,pady = 5,padx=10,ipadx = 1,ipady = 1,sticky = E+W)
+
+
+		#Active Alarms list and corresponding options.
 		active_label = ttk.Label(self, text = 'ACTIVE',anchor='center',font=MEDIUM_FONT,background = '#9cd9b3',borderwidth=5,relief = 'sunken')
 		active_label.grid(row=1,column=3,sticky=N+S+W+E,columnspan=3,pady =5,padx=5,ipady = 3)
 
-		all_user_data = controller.retrieve_from_db(AAN)
-		active_user_data  = controller.retrieve_from_db(ACTAN)
-		self.all = tk.Listbox(self, selectmode = 'multiple',font = SMALL_FONT)
-		self.all.insert('end', *all_user_data)
-		self.all.grid(row=2,column=0,sticky = N+S+W+E,columnspan=3,rowspan=5,ipady=160,pady =10,padx=10)
-		self.active = tk.Listbox(self, selectmode = 'multiple')
-		self.active.insert('end', *active_user_data)
-		self.active.grid(row=2,column=3,sticky=N+E+W+S,columnspan=3,pady =10,padx=10)
-		all_scrollbar = tk.Scrollbar(self.all, orient  = 'vertical')
-		all_scrollbar.config(command = self.all.yview)
-		all_scrollbar.pack(side="right", fill="y")
-		self.all.config(yscrollcommand = all_scrollbar.set)
+		actan_data  = controller.retrieve_from_db(ACTAN)
 
-		refresh = ttk.Button(self, text = "Refresh", command = lambda : self.modify(controller))
+		self.actan_list = tk.Listbox(self, selectmode = 'multiple')
+		self.actan_list.insert('end', *actan_data)
+		self.actan_list.grid(row=2,column=3,sticky=N+E+W+S,columnspan=3,pady =10,padx=10)
+
+		refresh = ttk.Button(self, text = "Refresh", command = lambda : self.update_lists())
 		refresh.grid(row=3,column=5,sticky=N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
-		showlabel = tk.Label(self, text = 'Enter alarm name :', font = SMALL_FONT, bg = '#9cc0d9')
-		showlabel.grid(row=4,column = 3,sticky=N+E+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
+
+		actan_remove = ttk.Button(self, text = 'Remove', command = lambda : self.delete_from_actan_list())
+		actan_remove.grid(row = 3, column = 4, sticky = N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
+
+		actan_scrollbar = tk.Scrollbar(self.actan_list, orient  = 'vertical')
+		actan_scrollbar.config(command = self.actan_list.yview)
+		actan_scrollbar.pack(side="right", fill="y")
+		self.actan_list.config(yscrollcommand = actan_scrollbar.set)
+
+
+		#See what are the ringtimes of particular alarm
+		show_label = tk.Label(self, text = 'Enter alarm name :', font = SMALL_FONT, bg = '#9cc0d9')
+		show_label.grid(row=4,column = 3,sticky=N+E+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
+
 		alarm_name = ttk.Entry(self)
 		alarm_name.grid(row = 4,column = 4,sticky=N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
-		show = ttk.Button(self, text = 'Show', command = lambda : self.show_details(alarm_name.get()))
-		show.grid(row=4,column=5,sticky = N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
+
+		show_button = ttk.Button(self, text = 'Show', command = lambda : self.show_details(alarm_name.get()))
+		show_button.grid(row=4,column=5,sticky = N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
+
 		s = ttk.Style()
 		s.configure('TButton', font = SMALL_FONT)
-		add = ttk.Button(self, text = 'Set', command = lambda : self.add(controller))
-		add.grid(row=7,column=0,sticky=E+W,pady = 5,padx=10,ipadx = 1,ipady = 1)
-		new = ttk.Button(self,text = 'New', command = lambda : controller.show_frame(New))
-		new.grid(row = 7,column = 1,pady = 5,padx=10,ipadx = 1,ipady = 1,sticky = E+W)
-		self.e = tk.Text(self, height = 20)
-		self.e.grid(row=5,column=3,sticky = E+W,columnspan = 3,rowspan = 3,pady = 5,padx=5)
-		remove1 = ttk.Button(self, text = 'Remove', command = lambda: self.delete_items_all())
-		remove1.grid(row = 7, column = 2,sticky = W+E,pady = 5,padx=10,ipadx = 1,ipady = 1)
-		remove2 = ttk.Button(self, text = 'Remove', command = lambda : self.delete_items_active())
-		remove2.grid(row = 3, column = 4, sticky = N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
-		self.modify(controller)
-		'''all_user_data = controller.retrieve_allalarms_user()
-		active_user_data  = controller.retrieve_active_user()
-		self.alarm_var = tk.StringVar()
-		self.alarm_menu = tk.OptionMenu(self, self.alarm_var, *all_user_data)
-		self.alarm_menu.pack()
-		self.active_var = tk.StringVar()
-		self.active_menu = tk.OptionMenu(self, self.alarm_var, *all_user_data)
-		self.alarm_menu.pack()
-		self.modify_options(controller)
-
-	def modify_options(self, controller):
-		self.alarm_var.set('')
-		self.alarm_menu['menu'].delete(0, 'end')
-		all_user_data=controller.retrieve_allalarms_user()
-		for choice in all_user_data:
-			self.alarm_menu['menu'].add_command(label=choice, command=tk._setit(self.alarm_var, choice))'''
-	def modify(self, controller):
-
-		print('Hii')
-		all_user_data = controller.retrieve_from_db(AAN)
 		
-		active_user_data  = controller.retrieve_from_db(ACTAN)
-		#print(active_user_data)
-		self.all.delete(0, 'end')
-		#print(all_user_data)
-		self.all.insert('end', *all_user_data)
-		self.active.delete(0, 'end')
-		self.active.insert('end', *active_user_data)
+	
+		self.display_details = tk.Text(self, height = 20)
+		self.display_details.grid(row=5,column=3,sticky = E+W,columnspan = 3,rowspan = 3,pady = 5,padx=5)
+		
+		self.update_lists()
 
-	def add(self, controller):
 
-		active_user_data = controller.retrieve_from_db(ACTAN)
-		print(active_user_data)
-		selected = self.all.curselection()
+	def update_lists(self):
+
+		aan_data_updated = self.controller.retrieve_from_db(AAN)
+		actan_data_updated  = self.controller.retrieve_from_db(ACTAN)
+
+		self.aan_list.delete(0, 'end')
+		self.aan_list.insert('end', *aan_data_updated)
+
+		self.actan_list.delete(0, 'end')
+		self.actan_list.insert('end', *actan_data_updated)
+
+
+	def set_to_active(self):
+
+		actan_data = self.controller.retrieve_from_db(ACTAN)
+		selected_alarms = self.aan_list.curselection()
 		conn = sqlite3.connect('CBAS.sqlite')
 		cur = conn.cursor()
-		for i in selected:
+
+		for i in selected_alarms:
 			
-			if self.all.get(i) not in active_user_data:
-				cur.execute('INSERT INTO ACTIVE_ALARM_NAMES (name) VALUES (?)',(self.all.get(i)))
-				cur.execute('SELECT * FROM ALL_ALARMS WHERE name = (?)',(self.all.get(i)))
-				selecteddata = cur.fetchall()
-				for row in selecteddata:
+			if self.aan_list.get(i) not in actan_data:
+
+				cur.execute('INSERT INTO ACTIVE_ALARM_NAMES (name) VALUES (?)',(self.aan_list.get(i)))
+				conn.commit()
+				cur.execute('SELECT * FROM ALL_ALARMS WHERE name = (?)',(self.aan_list.get(i)))
+				conn.commit()
+				selected_data = cur.fetchall()
+
+				for row in selected_data:
+
 					name, ringtime, belltype = row
 					cur.execute('INSERT INTO ACTIVE_ALARMS VALUES (?,?,?)',(name, ringtime, belltype))
-			conn.commit()
+					conn.commit()
+
+		self.update_lists()
 		conn.close()
 
-	def show_details(self, name):
 
-		conn = sqlite3.connect('CBAS.sqlite')
-		cur = conn.cursor()
-		cur.execute('SELECT * FROM ALL_ALARMS WHERE name = (?)', (name,))
-		data = cur.fetchall()
-		if self.e is not None:
-			self.e.destroy()
-		self.e = tk.Text(self, height = 20, width = 40)
-		self.e.config(state = 'normal')
+	def show_details(self, alarm_name):
 
-		self.e.delete(1.0, 'end')
+		data = self.controller.retrieve_alarms_by_name(alarm_name)
+
+		if self.display_details is not None:
+			self.display_details.destroy()
+
+		self.display_details = tk.Text(self, height = 20, width = 40)
+		self.display_details.config(state = 'normal')
+		self.display_details.delete(1.0, 'end')
+
 		for row in data:
-			
-			self.e.insert('end', str(row)+'\n')
-		self.e.config(state = 'disabled')
-		self.e.grid(row=5,column=3,sticky = E+W,columnspan = 3,rowspan = 3,pady = 5,padx=5)
-		conn.commit()
-		conn.close()
+			self.display_details.insert('end', str(row)+'\n')
 
-	def delete_items_all(self):
-		sel = self.all.curselection()
+		self.display_details.config(state = 'disabled')
+		self.display_details.grid(row=5,column=3,sticky = E+W,columnspan = 3,rowspan = 3,pady = 5,padx=5)
+
+
+	def delete_from_aan_list(self):
+
+		selected_alarms = self.aan_list.curselection()
 		conn = sqlite3.connect('CBAS.sqlite')
 		cur = conn.cursor()
-		for i in sel[::-1]:
-			cur.execute('DELETE FROM ALL_ALARMS WHERE name = (?)', (self.all.get(i)))
-			cur.execute('DELETE FROM ALL_ALARM_NAMES WHERE name = (?)', (self.all.get(i)))
-			cur.execute('DELETE FROM ACTIVE_ALARMS WHERE name = (?)', (self.all.get(i)))
-			cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (self.all.get(i)))
-			self.all.delete(i)
-		conn.commit()
+
+		for i in selected_alarms[::-1]:
+
+			cur.execute('DELETE FROM ALL_ALARMS WHERE name = (?)', (self.aan_list.get(i)))
+			conn.commit()
+			cur.execute('DELETE FROM ALL_ALARM_NAMES WHERE name = (?)', (self.aan_list.get(i)))
+			conn.commit()
+			cur.execute('DELETE FROM ACTIVE_ALARMS WHERE name = (?)', (self.aan_list.get(i)))
+			conn.commit()
+			cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (self.aan_list.get(i)))
+			conn.commit()
+			self.aan_list.delete(i)
+
+		self.update_lists()
 		conn.close()
 
-	def delete_items_active(self):
-		sel = self.active.curselection()
+
+	def delete_from_actan_list(self):
+
+		selected_alarms = self.actan_list.curselection()
 		conn = sqlite3.connect('CBAS.sqlite')
 		cur = conn.cursor()
-		for i in sel[::-1]:
-			cur.execute('DELETE FROM ACTIVE_ALARMS WHERE name = (?)', (self.all.get(i)))
-			cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (self.all.get(i)))
-			self.active.delete(i)
-		conn.commit()
+
+		for i in selected_alarms[::-1]:
+
+			cur.execute('DELETE FROM ACTIVE_ALARMS WHERE name = (?)', (self.actan_list.get(i)))
+			conn.commit()
+			cur.execute('DELETE FROM ACTIVE_ALARM_NAMES WHERE name = (?)', (self.actan_list.get(i)))
+			conn.commit()
+			self.actan_list.delete(i)
+
+		self.update_lists()
 		conn.close()
+
 
 
 class New(tk.Frame):
