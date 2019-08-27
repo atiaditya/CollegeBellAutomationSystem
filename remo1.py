@@ -143,6 +143,16 @@ class CBAS(tk.Tk):
 		return data
 
 
+	def update_db_row(self, alarm_name, old_ringtime, old_belltype, new_ringtime, new_belltype):
+
+		conn = sqlite3.connect('CBAS.sqlite')
+		cur = conn.cursor()
+		cur.execute('UPDATE ALL_ALARMS SET ringtime = (?),belltype = (?) WHERE name = (?) AND ringtime = (?) AND belltype = (?)', (new_ringtime, new_belltype, alarm_name, old_ringtime, old_belltype))
+		conn.commit()
+		cur.execute('UPDATE ACTIVE_ALARMS SET ringtime = (?),belltype = (?) WHERE name = (?) AND ringtime = (?) AND belltype = (?)', (new_ringtime, new_belltype, alarm_name, old_ringtime, old_belltype))
+		conn.commit()
+		conn.close()
+
 	def alarm_exists(self, alarm_name):
 
 		conn = sqlite3.connect('CBAS.sqlite')
@@ -303,7 +313,7 @@ class HomePage(tk.Frame):
 			
 			if self.aan_list.get(i) not in actan_data:
 
-				cur.execute('INSERT INTO ACTIVE_ALARM_NAMES (name) VALUES (?)',(self.aan_list.get(i)))
+				cur.execute('INSERT INTO ACTIVE_ALARM_NAMES VALUES (?)',(self.aan_list.get(i)))
 				conn.commit()
 				cur.execute('SELECT * FROM ALL_ALARMS WHERE name = (?)',(self.aan_list.get(i)))
 				conn.commit()
@@ -413,20 +423,20 @@ class Edit(tk.Frame):
 		for i in range(len(data_to_edit)):
 				
 				row = data_to_edit[i]
-				(alarm_name,ringtime,belltype) = row
+				(self.alarm_name,ringtime,belltype) = row
 				
 				hours,minutes = ringtime.split(':')
 				print(hours, minutes)
 
-				alarm_label = tk.Label(self, text = alarm_name, font = LARGE_FONT, bg = '#9cc0d9')
+				alarm_label = tk.Label(self, text = self.alarm_name, font = LARGE_FONT, bg = '#9cc0d9')
 				alarm_label.grid(row = 0)
 				hour_menu = ttk.Combobox(self, values=hours_options, state = 'readonly')
 				hour_menu.grid(row = i+1,pady = 3)
 
-				minute_menu = ttk.Combobox(self, values = minutes_options, state = 'readonly')
+				minute_menu = ttk.Combobox(self, values=minutes_options, state = 'readonly')
 				minute_menu.grid(row = i+1, column = 1,pady = 3)
 
-				belltype_menu = ttk.Combobox(self, values = belltypes, state = 'readonly')
+				belltype_menu = ttk.Combobox(self, values=belltypes, state = 'readonly')
 				belltype_menu.grid(row = i+1, column = 2,pady = 3)
 				
 				hour_menu.set(hours)
@@ -434,13 +444,33 @@ class Edit(tk.Frame):
 				belltype_menu.set(belltype)
 
 				self.items_to_destroy.extend([hour_menu, minute_menu, belltype_menu])
-				self.current_ring_times.append((hour_menu, minute_menu, belltype_menu))
+				self.current_ring_times.append(((hours+':'+minutes, belltype), (hour_menu, minute_menu, belltype_menu)))
 
-		submit = ttk.Button(self, text = "Submit", command = lambda : self.on_click_submit_top(int(no_of_periods_entry.get() )))
-		submit.grid(row = len(data_to_edit) + 1, column = 2)
+		self.submit = ttk.Button(self, text = "Submit", command = lambda : self.on_click_submit())
+		self.submit.grid(row = len(data_to_edit) + 1, column = 2, pady = 10)
 
-		back = ttk.Button(self, text = "Back", command = lambda : self.controller.show_frame(HomePage))
-		back.grid(row = len(data_to_edit) + 1,column = 3,padx = 5)		
+		self.back = ttk.Button(self, text = "Back", command = lambda : self.controller.show_frame(HomePage))
+		self.back.grid(row = len(data_to_edit) + 1,column = 3,padx = 5)
+
+
+	def on_click_submit(self):
+
+		for old_new_rows in self.current_ring_times:
+
+			old_values,new_values =  old_new_rows
+			old_ringtime, old_belltype = old_values
+			new_hours, new_minutes, new_belltype = new_values
+			new_ringtime = new_hours.get() + ':' + new_minutes.get()
+			self.controller.update_db_row(self.alarm_name, old_ringtime, old_belltype, new_ringtime, new_belltype.get())
+
+		while(self.items_to_destroy):
+				menu_item = self.items_to_destroy.pop()
+				menu_item.destroy()
+
+		self.back.destroy()
+		#print(periods)
+		#self.controller.delete_from_alarms(periods, AA, self.alarm_name)
+		self.controller.show_frame(HomePage)
 
 
 class New(tk.Frame):
