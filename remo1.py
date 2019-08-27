@@ -15,6 +15,11 @@ AA = 'all_alarms'
 ACTA = 'active_alarms'
 AAN = 'all_alarm_names'
 ACTAN = 'active_alarm_names'
+hours_options = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
+hours_options.extend([str(i) for i in range(10,24)])
+minutes_options = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
+minutes_options.extend([str(i) for i in range(10,60)])
+belltypes  = ['short', 'long']
 
 
 #Creating Required DataBases
@@ -99,8 +104,10 @@ class CBAS(tk.Tk):
 
 
 	def delete_from_alarms(self, name, ringtime, belltype, table_name):
+
 		conn = sqlite3.connect('CBAS.sqlite')
 		cur = conn.cursor()
+
 		if(table_name == AA):
 			cur.execute('DELETE FROM ALL_ALARMS WHERE name = (?) AND ringtime = (?) AND belltype = (?)', (name, ringtime, belltype))
 			conn.commit()
@@ -138,9 +145,9 @@ class CBAS(tk.Tk):
 			belltype = belltype.strip(",)'")		
 			current_time = datetime.now().time()
 			ringtime = datetime.strptime(ringtime_str, '%H::%M').time()
-
-			if(ringtime >= current_time):
-
+			print(ringtime, current_time)
+			if(current_time >= ringtime):
+				
 				frequency = 1000
 				duration = 10000
 				if(belltype == 'long'):
@@ -247,6 +254,7 @@ class HomePage(tk.Frame):
 		for choice in all_user_data:
 			self.alarm_menu['menu'].add_command(label=choice, command=tk._setit(self.alarm_var, choice))'''
 	def modify(self, controller):
+
 		print('Hii')
 		all_user_data = controller.retrieve_from_db(AAN)
 		
@@ -326,72 +334,77 @@ class New(tk.Frame):
 
 	def __init__(self, parent, controller):
 
+		self.controller = controller
 		self.last_button = None
 		self.menu_items_list = []
 		tk.Frame.__init__(self, parent)
 		self.config(bg = '#9cc0d9')
-		n = tk.Label(self, text = 'Name :', font = SMALL_FONT, bg = '#9cc0d9')
-		n.grid(row = 0)
-		ne = ttk.Entry(self, font = SMALL_FONT)
-		ne.grid(row = 0,column = 1,sticky=N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
-		number = tk.Label(self, text = 'No of periods :', font = SMALL_FONT, bg = '#9cc0d9')
-		number.grid(row = 0, column = 2)
-		numbere = ttk.Entry(self, font = SMALL_FONT)
-		numbere.grid(row = 0,column = 3,sticky=N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
-		submit = ttk.Button(self, text = "Submit", command = lambda : self.submit1(ne.get(), int(numbere.get()), controller))
-		submit.grid(row = 0, column = 4)
-		back = ttk.Button(self, text = "Back", command = lambda : controller.show_frame(HomePage))
-		back.grid(row = 0, column = 5, padx = 5)
+
+		self.name = tk.Label(self, text = 'Name :', font = SMALL_FONT, bg = '#9cc0d9')
+		self.name.grid(row = 0)
+
+		self.name_entry = ttk.Entry(self, font = SMALL_FONT)
+		self.name_entry.grid(row = 0,column = 1,sticky=N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
+
+		no_of_periods = tk.Label(self, text = 'No of periods :', font = SMALL_FONT, bg = '#9cc0d9')
+		no_of_periods.grid(row = 0, column = 2)
+
+		no_of_periods_entry = ttk.Entry(self, font = SMALL_FONT)
+		no_of_periods_entry.grid(row = 0,column = 3,sticky=N+E+W+S,pady = 5,padx=10,ipadx = 1,ipady = 3)
+
+		submit_top = ttk.Button(self, text = "Submit", command = lambda : self.on_click_submit_top(int(no_of_periods_entry.get() )))
+		submit_top.grid(row = 0, column = 4)
+
+		back = ttk.Button(self, text = "Back", command = lambda : self.controller.show_frame(HomePage))
+		back.grid(row = 0,column = 5,padx = 5)
 		
-	def submit1(self, name, no_of_periods, controller):
 
-		self.l = []
-		#print(self.last_button)
-		#print(self.menu_items_list)
+	def on_click_submit_top(self, no_of_periods):
 
+		self.current_ring_times = []
+	
 		if self.last_button is not None:
 			self.last_button.destroy()
 
 		while(self.menu_items_list):
 			menu_item = self.menu_items_list.pop()
 			menu_item.destroy()
-			#if menu_item is not None:
-				#menu_item.destroy()
 
-		hours_options = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
-		hours_options.extend([str(i) for i in range(10,24)])
-		minutes_options = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09']
-		minutes_options.extend([str(i) for i in range(10,60)])
-		belltypes  = ['short', 'long']
 		for i in range(no_of_periods):
+
 			hours_var = tk.StringVar()
 			minutes_var  = tk.StringVar()
 			belltype_var = tk.StringVar()
+
 			hour_menu = ttk.Combobox(self, textvariable=hours_var, values=hours_options, state = 'readonly')
 			hour_menu.grid(row = i+1,pady = 3)
+
 			minute_menu = ttk.Combobox(self, textvariable = minutes_var, values = minutes_options, state = 'readonly')
 			minute_menu.grid(row = i+1, column = 1,pady=3)
+
 			belltype_menu = ttk.Combobox(self, textvariable = belltype_var, values = belltypes, state = 'readonly')
 			belltype_menu.grid(row = i+1, column = 2,pady=3)
+
 			hours_var.set(hours_options[0])
 			minutes_var.set(minutes_options[0])
 			belltype_var.set(belltypes[0])
-			l = [hour_menu, minute_menu, belltype_menu]
-			print(l)
-			self.menu_items_list.extend(l)
-			self.l.append((hours_var, minutes_var, belltype_var))
-		submit = ttk.Button(self, text = "Submit", command = lambda : self.submit2(name, controller))
+
+			self.menu_items_list.extend([hour_menu, minute_menu, belltype_menu])
+			self.current_ring_times.append((hours_var, minutes_var, belltype_var))
+
+		submit_bottom = ttk.Button(self, text = "Submit", command = lambda : self.on_click_submit_bottom())
 		no_of_periods += 1
-		submit.grid(row = no_of_periods)
-		self.last_button = submit
-		#print(submit)
+		submit_bottom.grid(row = no_of_periods)
+		self.last_button = submit_bottom
 
-	def submit2(self, name, controller):
 
+	def on_click_submit_bottom(self):
+
+		self.name = self.name_entry.get()
 		#print(name)
-		periods = [ (name, hours_var.get()+'::'+minutes_var.get(), belltype_var.get()) for hours_var,minutes_var,belltype_var in self.l]
+		periods = [ (self.name, hours_var.get()+'::'+minutes_var.get(), belltype_var.get()) for hours_var,minutes_var,belltype_var in self.current_ring_times]
 		print(periods)
-		controller.store_in_db(periods, AA, name)
+		self.controller.store_in_db(periods, AA, self.name)
 		
 
 app = CBAS()
